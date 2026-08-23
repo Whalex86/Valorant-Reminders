@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Valorant Hydration Reminder — Settings</title>
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #1b1d22;
+      color: #eee;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 16px;
+      margin: 0 0 4px 0;
+    }
+    p.hint {
+      font-size: 12px;
+      color: #999;
+      margin: 0 0 18px 0;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      margin: 14px 0 6px 0;
+      color: #ccc;
+    }
+    input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #26282e;
+      color: #fff;
+      font-size: 13px;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+    }
+    button {
+      margin-top: 20px;
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      background: #ff4655;
+      color: white;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    button:hover { background: #e13b48; }
+    #status {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #7CFC9A;
+      min-height: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Post-game reminder</h1>
+  <p class="hint">Fires once when the whole match ends (win, loss, or draw) — not per round.</p>
+
+  <label class="row">
+    <input type="checkbox" id="enabled" />
+    Enable reminders
+  </label>
+
+  <label>On a win</label>
+  <input type="text" id="winMessage" placeholder="e.g. GG! Drink some water" />
+
+  <label>On a loss</label>
+  <input type="text" id="lossMessage" placeholder="e.g. Take a breather, hydrate" />
+
+  <label>On a draw</label>
+  <input type="text" id="drawMessage" placeholder="e.g. Draw — still worth a water break" />
+
+  <button id="saveBtn">Save</button>
+  <div id="status"></div>
+
+  <script src="desktop.js"></script>
+</body>
+</html>
