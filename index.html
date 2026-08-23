@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Valorant Reminders — post-match notifications</title>
+<meta name="description" content="A personal utility that shows a custom reminder the moment a Valorant match ends — win, loss, or draw." />
+
+<!-- Riot verification string goes here once issued, e.g.:
+<meta name="riot-games:verification" content="PASTE_STRING_HERE" />
+Riot may instead ask for a riot.txt file at the domain root — see README. -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #0B0D10;
+    --panel: #14171C;
+    --panel-line: #23272E;
+    --text: #E8EAED;
+    --text-muted: #8A93A3;
+    --accent: #5EEAD4;
+    --accent-dim: #2C6B63;
+    --amber: #F2C572;
+
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); }
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ---------- Reticle motif (signature element) ---------- */
+  .reticle {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    position: relative;
+    vertical-align: -0.15em;
+  }
+  .reticle::before, .reticle::after {
+    content: "";
+    position: absolute;
+    background: currentColor;
+  }
+  .reticle::before { top: 0; bottom: 0; left: 50%; width: 1.5px; transform: translateX(-50%); }
+  .reticle::after { left: 0; right: 0; top: 50%; height: 1.5px; transform: translateY(-50%); }
+
+  .reticle-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.35;
+  }
+  .reticle-bg svg { width: 100%; height: 100%; }
+
+  /* ---------- Header / hero ---------- */
+  header {
+    position: relative;
+    overflow: hidden;
+    padding: 96px 0 72px;
+    border-bottom: 1px solid var(--panel-line);
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .eyebrow .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(32px, 5vw, 48px);
+    line-height: 1.08;
+    letter-spacing: -0.01em;
+    margin: 0 0 18px;
+  }
+
+  .lede {
+    font-size: 17px;
+    color: var(--text-muted);
+    max-width: 46ch;
+    margin: 0 0 40px;
+  }
+
+  /* ---------- HUD demo (the "hero is a thesis" element) ---------- */
+  .hud {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    max-width: 420px;
+    position: relative;
+  }
+  .hud-row {
+    display: flex;
+    justify-content: space-between;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .hud-status {
+    color: var(--amber);
+  }
+  .hud-status.won { color: var(--accent); }
+  .hud-toast {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: #0F1215;
+    border: 1px solid var(--accent-dim);
+    border-radius: 8px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .hud-toast .reticle { color: var(--accent); margin-top: 2px; flex-shrink: 0; }
+  .hud-toast-title { font-family: var(--font-body); font-weight: 600; font-size: 13px; color: var(--text); }
+  .hud-toast-body { font-family: var(--font-body); font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ---------- Sections ---------- */
+  section {
+    padding: 56px 0;
+    border-bottom: 1px solid var(--panel-line);
+  }
+  section:last-of-type { border-bottom: none; }
+
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 16px;
+  }
+
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 24px;
+    margin: 0 0 20px;
+  }
+
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 16px;
+    margin: 28px 0 8px;
+    color: var(--text);
+  }
+
+  p { color: var(--text-muted); margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+
+  ul { color: var(--text-muted); padding-left: 20px; margin: 0 0 14px; }
+  li { margin-bottom: 6px; }
+
+  .steps {
+    list-style: none;
+    padding: 0;
+    counter-reset: step;
+  }
+  .steps li {
+    counter-increment: step;
+    display: flex;
+    gap: 14px;
+    padding: 14px 0;
+    border-top: 1px solid var(--panel-line);
+  }
+  .steps li:first-child { border-top: none; }
+  .steps li::before {
+    content: counter(step);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    border-radius: 50%;
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .steps strong { color: var(--text); font-weight: 600; }
+
+  .badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    border: 1px solid var(--panel-line);
+    border-radius: 5px;
+    padding: 3px 8px;
+    margin: 2px 6px 2px 0;
+  }
+
+  footer {
+    padding: 40px 0 64px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  footer a { color: var(--text-muted); }
+  footer a:hover { color: var(--accent); }
+
+  /* ---------- GitHub link button ---------- */
+  .gh-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 28px;
+    padding: 9px 16px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 7px;
+    text-decoration: none;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .gh-link:hover {
+    border-color: var(--accent-dim);
+    color: var(--accent);
+  }
+  .gh-link svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="reticle-bg" aria-hidden="true">
+    <svg viewBox="0 0 760 400" preserveAspectRatio="xMaxYMid slice">
+      <circle cx="640" cy="120" r="90" fill="none" stroke="#5EEAD4" stroke-opacity="0.18" stroke-width="1"/>
+      <circle cx="640" cy="120" r="140" fill="none" stroke="#5EEAD4" stroke-opacity="0.10" stroke-width="1"/>
+      <line x1="640" y1="0" x2="640" y2="400" stroke="#5EEAD4" stroke-opacity="0.12" stroke-width="1"/>
+      <line x1="500" y1="120" x2="780" y2="120" stroke="#5EEAD4" stroke-opacity="0.12" stroke-width="1"/>
+    </svg>
+  </div>
+  <div class="wrap">
+    <p class="eyebrow"><span class="dot"></span> Personal utility · unaffiliated with Riot Games</p>
+    <h1>A reminder that waits<br>for the round to be over.</h1>
+    <p class="lede">Valorant Reminders shows one short, custom message the moment a match ends — win, loss, or draw — instead of interrupting you mid-round with a fixed timer.</p>
+
+    <div class="hud" role="img" aria-label="Example notification: match over, victory, reminder to drink water">
+      <div class="hud-row"><span>MATCH_STATE</span><span class="hud-status won">VICTORY</span></div>
+      <div class="hud-row"><span>ROUNDS</span><span>13 – 8</span></div>
+      <div class="hud-toast">
+        <span class="reticle" aria-hidden="true"></span>
+        <div>
+          <div class="hud-toast-title">Match over — Victory</div>
+          <div class="hud-toast-body">GG, you won! Grab some water.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Replace the href below with your actual repo URL -->
+    <a class="gh-link" href="https://github.com/YOUR-USERNAME/YOUR-REPO" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+        0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+        -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07
+        -1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82
+        .64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12
+        .51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48
+        0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+      </svg>
+      Download from GitHub here
+    </a>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="section-label">What it does</p>
+    <h2>One notification, timed to the game — not the clock</h2>
+    <p>Break and hydration reminders that fire on a fixed timer land wherever they land — sometimes in the middle of a clutch round. This tool instead waits for Valorant to report that the <em>match itself</em> has ended, then shows a single desktop notification with a message the player has written themselves — "drink some water," "stretch," or anything else.</p>
+    <ul>
+      <li>Fires once per match, on the official match outcome (victory / defeat / draw)</li>
+      <li>Message text is fully user-configurable, separately for each outcome</li>
+      <li>No effect on gameplay, input, or the game client in any way</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="section-label">How it works</p>
+    <h2>Built on Overwolf's official event feed</h2>
+    <p>The app runs as an Overwolf application and subscribes to Overwolf's Game Events Provider (GEP) for Valorant — the same officially supported integration Overwolf exposes for other approved apps. It reads the <code>match_info</code> feature's <code>match_outcome</code> field once a match concludes, and the <code>game_info</code> feature to know when Valorant has launched or closed.</p>
+    <p>It does not read game memory, hook the game process, automate input, or access any data beyond what Overwolf's sanctioned GEP feed already provides.</p>
+    <div>
+      <span class="badge">Overwolf GEP</span>
+      <span class="badge">match_info</span>
+      <span class="badge">game_info</span>
+      <span class="badge">local desktop notification</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="section-label">Setup</p>
+    <h2>Getting it running</h2>
+    <ol class="steps">
+      <li><span><strong>Install Overwolf</strong> and enable developer mode, if not already set up.</span></li>
+      <li><span><strong>Load the app</strong> as an unpacked Overwolf extension from its project folder.</span></li>
+      <li><span><strong>Open the app</strong> from the Overwolf dock and set your own win / loss / draw messages.</span></li>
+      <li><span><strong>Launch Valorant</strong> — the app runs quietly in the background and notifies you once each match ends.</span></li>
+    </ol>
+  </div>
+</section>
+
+<section id="privacy">
+  <div class="wrap">
+    <p class="section-label">Privacy policy</p>
+    <h2>What data this app touches</h2>
+    <p>This app is for personal, single-user use and does not have a backend server, account system, or analytics.</p>
+    <h3>Data read</h3>
+    <p>Match outcome data (victory / defeat / draw) and game running-state, provided locally by Overwolf's Game Events Provider while Valorant is running.</p>
+    <h3>Data stored</h3>
+    <p>Only the user's own custom reminder messages and an on/off toggle, saved locally on the user's machine. Nothing is transmitted anywhere or shared with any third party.</p>
+    <h3>Data shared</h3>
+    <p>None. This app makes no network requests and has no server component.</p>
+  </div>
+</section>
+
+<section id="terms">
+  <div class="wrap">
+    <p class="section-label">Terms of service</p>
+    <h2>Use of this app</h2>
+    <p>This is an independent personal project, not affiliated with, endorsed by, or sponsored by Riot Games, Inc. or Overwolf Ltd. "VALORANT" and all related marks are trademarks of Riot Games, Inc.</p>
+    <p>The app is provided as-is, for personal use, with no warranty of any kind. It is intended solely to display locally-generated reminder notifications based on officially supported Overwolf match data, and must not be modified to read data outside Overwolf's sanctioned GEP feed.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Valorant Reminders · not affiliated with Riot Games or Overwolf ·
+    <a href="#privacy">Privacy</a> · <a href="#terms">Terms</a>
+  </div>
+</footer>
+
+</body>
+</html>
